@@ -11,6 +11,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+// مسار الصفحة الرئيسية صراحة
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// جلب الأفلام للرئيسية
+app.get("/api/home", async (req, res) => {
+  try {
+    const { data } = await axios.get("https://ak.sv/", {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+    });
+    const $ = cheerio.load(data);
+    const results = [];
+    $(".entry-box, .movie-item, .item").each((i, el) => {
+      const title = $(el).find(".title, h2, h3").text().trim();
+      const url = $(el).find("a").attr("href");
+      const image = $(el).find("img").attr("data-src") || $(el).find("img").attr("src");
+      const rating = $(el).find(".rating, .rate").text().trim() || "0.0";
+      const year = $(el).find(".year").text().trim() || "";
+      if (url) results.push({ title, url, image, rating, year });
+    });
+    res.json({ success: true, data: results });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to fetch home movies" });
+  }
+});
+
 app.get("/api/search", async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ success: false, message: "Query required" });

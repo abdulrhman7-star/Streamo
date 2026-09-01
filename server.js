@@ -16,28 +16,46 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// دالة مساعدة لاستخراج الأفلام والمسلسلات بدقة من أي صفحة
+function parseMediaItems(html) {
+  const $ = cheerio.load(html);
+  const results = [];
+  
+  // البحث عبر مختلف الـ Selectors الشائعة في مواقع البث
+  $("div, article, li, figure").each((i, el) => {
+    const img = $(el).find("img");
+    const urlEl = $(el).find("a").first();
+    const url = urlEl.attr("href");
+    
+    if (url && (url.includes("/movie/") || url.includes("/series/") || url.includes("watch") || url.includes("title") || url.includes("post"))) {
+      const title = $(el).find(".title, h2, h3, .name, .entry-title").text().trim() || img.attr("alt") || "";
+      const image = img.attr("data-src") || img.attr("src") || "";
+      const rating = $(el).find(".rating, .rate, .score").text().trim() || "0.0";
+      const year = $(el).find(".year, .date").text().trim() || "";
+      
+      if (title && image && !results.some(r => r.url === url)) {
+        const fullUrl = url.startsWith("http") ? url : `https://ak.sv${url}`;
+        results.push({ title, url: fullUrl, image, rating, year });
+      }
+    }
+  });
+  return results;
+}
+
 // جلب الأفلام للرئيسية
 app.get("/api/home", async (req, res) => {
   try {
     const { data } = await axios.get("https://ak.sv/", {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
     });
-    const $ = cheerio.load(data);
-    const results = [];
-    $(".entry-box, .movie-item, .item").each((i, el) => {
-      const title = $(el).find(".title, h2, h3").text().trim();
-      const url = $(el).find("a").attr("href");
-      const image = $(el).find("img").attr("data-src") || $(el).find("img").attr("src");
-      const rating = $(el).find(".rating, .rate").text().trim() || "0.0";
-      const year = $(el).find(".year").text().trim() || "";
-      if (url) results.push({ title, url, image, rating, year });
-    });
+    const results = parseMediaItems(data);
     res.json({ success: true, data: results });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch home movies" });
   }
 });
 
+// بحث الأفلام
 app.get("/api/search", async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ success: false, message: "Query required" });
@@ -45,16 +63,7 @@ app.get("/api/search", async (req, res) => {
     const { data } = await axios.get(`https://ak.sv/search?q=${encodeURIComponent(query)}`, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
     });
-    const $ = cheerio.load(data);
-    const results = [];
-    $(".entry-box, .movie-item, .item").each((i, el) => {
-      const title = $(el).find(".title, h2, h3").text().trim();
-      const url = $(el).find("a").attr("href");
-      const image = $(el).find("img").attr("data-src") || $(el).find("img").attr("src");
-      const rating = $(el).find(".rating, .rate").text().trim() || "0.0";
-      const year = $(el).find(".year").text().trim() || "";
-      if (url) results.push({ title, url, image, rating, year });
-    });
+    const results = parseMediaItems(data);
     res.json({ success: true, data: results });
   } catch (err) {
     res.status(500).json({ success: false, message: "Scraping failed" });

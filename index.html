@@ -25,7 +25,7 @@
       border-bottom: 1px solid var(--border-color);
       padding: 20px; text-align: center;
     }
-    header h1 { margin: 0; font-size: 24px; color: var(--accent-color); }
+    header h1 { margin: 0; font-size: 24px; color: var(--accent-color); cursor: pointer; }
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     .search-box { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; }
     .search-box input {
@@ -93,10 +93,10 @@
   </style>
 </head>
 <body>
-  <header><h1>Streamo Pro</h1></header>
+  <header><h1 onclick="loadHomeMovies()">Streamo Pro</h1></header>
   <div class="container">
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="ابحث عن فيلم أو مسلسل (مثال: Batman)...">
+      <input type="text" id="searchInput" placeholder="ابحث عن فيلم أو مسلسل (مثال: Batman)..." onkeypress="if(event.key === 'Enter') searchMedia()">
       <button onclick="searchMedia()">بحث</button>
     </div>
 
@@ -121,6 +121,32 @@
   </div>
 
   <script>
+    // تحميل أحدث الأفلام والمسلسلات تلقائياً عند فتح الصفحة
+    async function loadHomeMovies() {
+      document.getElementById('mediaViewerContainer').style.display = 'none';
+      const grid = document.getElementById('resultsGrid');
+      grid.innerHTML = '<p style="text-align:center; color:var(--text-muted); grid-column: 1/-1;">جاري تحميل أحدث الأفلام والمسلسلات...</p>';
+      try {
+        const res = await fetch('/api/home');
+        const result = await res.json();
+        grid.innerHTML = '';
+        if (result.success && result.data && result.data.length > 0) {
+          result.data.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'movie-card';
+            const isSeries = item.title.includes('مسلسل');
+            card.innerHTML = `<img src="${item.image}" alt="${item.title}" onerror="this.src='https://via.placeholder.com/200x280?text=No+Image'"><div class="movie-info"><p class="movie-title">${item.title}</p><div class="movie-meta"><span>${item.year || ''}</span><span>⭐ ${item.rating || '0.0'}</span></div></div>`;
+            card.onclick = () => loadMedia(item.url, isSeries);
+            grid.appendChild(card);
+          });
+        } else {
+          grid.innerHTML = '<p style="text-align:center; color:var(--text-muted); grid-column: 1/-1;">لا توجد عناصر مضافة حالياً.</p>';
+        }
+      } catch (e) {
+        grid.innerHTML = '<p style="text-align:center; color:red; grid-column: 1/-1;">حدث خطأ أثناء الاتصال بالخادم.</p>';
+      }
+    }
+
     async function searchMedia() {
       const query = document.getElementById('searchInput').value.trim();
       if (!query) return;
@@ -134,7 +160,7 @@
           result.data.forEach(item => {
             const card = document.createElement('div');
             card.className = 'movie-card';
-            const isSeries = item.title.includes('مسلسل') || (item.category && item.category.includes('مسلسلات'));
+            const isSeries = item.title.includes('مسلسل');
             card.innerHTML = `<img src="${item.image}" alt="${item.title}" onerror="this.src='https://via.placeholder.com/200x280?text=No+Image'"><div class="movie-info"><p class="movie-title">${item.title}</p><div class="movie-meta"><span>${item.year || ''}</span><span>⭐ ${item.rating || '0.0'}</span></div></div>`;
             card.onclick = () => loadMedia(item.url, isSeries);
             grid.appendChild(card);
@@ -232,6 +258,11 @@
         items[i].style.display = title.includes(input) ? 'flex' : 'none';
       }
     }
+
+    // تشغيل دالة جلب الصفحة الرئيسية تلقائياً عند فتح الموقع
+    window.onload = () => {
+      loadHomeMovies();
+    };
   </script>
 </body>
 </html>

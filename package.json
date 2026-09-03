@@ -1,27 +1,16 @@
 {
-  "name": "streamo",
+  "name": "streamo-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Akwam Streaming API",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/abdulrhman7-star/Streamo.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/abdulrhman7-star/Streamo/issues"
-  },
-  "homepage": "https://github.com/abdulrhman7-star/Streamo#readme",
   "dependencies": {
-    "axios": "^1.20.0",
-    "cheerio": "^1.2.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^4.18.2",
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "node-cache": "^5.1.2"
   }
 }

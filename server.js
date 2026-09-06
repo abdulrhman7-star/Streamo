@@ -8,22 +8,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const AKWAM_BASE_URL = 'https://akwam.ss'; // نطاق موقع أكوام الحالي
+const AKWAM_BASE_URL = 'https://akwam.ss';
 
-// 1. API للبحث عن أفلام أو مسلسلات
-app.get('/api/search', async (req, res) => {
+const axiosInstance = axios.create({
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8',
+  },
+  timeout: 10000,
+});
+
+// 1. جلب قائمة المحتوى (أفلام/مسلسلات/بحث)
+app.get('/api/media', async (req, res) => {
   try {
-    const query = req.query.q || '';
-    const searchUrl = `${AKWAM_BASE_URL}/search?q=${encodeURIComponent(query)}`;
-    
-    const { data } = await axios.get(searchUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-    });
+    const { q, type, page = 1 } = req.query;
+    let targetUrl = `${AKWAM_BASE_URL}/movies?page=${page}`;
 
+    if (q) {
+      targetUrl = `${AKWAM_BASE_URL}/search?q=${encodeURIComponent(q)}&page=${page}`;
+    } else if (type === 'series') {
+      targetUrl = `${AKWAM_BASE_URL}/series?page=${page}`;
+    }
+
+    const { data } = await axiosInstance.get(targetUrl);
     const $ = cheerio.load(data);
     const results = [];
 
-    $('.widget-body .entry-box').each((i, el) => {
+    $('.widget-body .entry-box, .col-lg-2 .entry-box').each((i, el) => {
       const title = $(el).find('.entry-title a').text().trim();
       const link = $(el).find('.entry-title a').attr('href');
       const poster = $(el).find('.entry-image img').attr('src') || $(el).find('.entry-image img').attr('data-src');
@@ -32,70 +43,84 @@ app.get('/api/search', async (req, res) => {
 
       if (title && link) {
         results.push({
-          id: Buffer.from(link).toString('base64'), // معرّف مشفّر من الرابط
+          id: Buffer.from(link).toString('base64'),
           title,
           link,
           poster,
           rating,
           category,
-          type: link.includes('/series/') ? 'series' : 'movie'
+          isSeries: link.includes('/series/') || title.includes('مسلسل')
         });
       }
     });
 
     res.json({ success: true, count: results.length, data: results });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'حدث خطأ أثناء البحث في أكوام', error: error.message });
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء جلب البيانات', error: error.message });
   }
 });
 
-// 2. API لجلب تفاصيل العرض وروابط التشغيل المباشرة (.mp4)
-app.get('/api/details', async (req, res) => {
+// 2. جلب الحلقات الخاصة بمسلسل معين
+app.get('/api/series-episodes', async (req, res) => {
   try {
-    const pageUrl = req.query.url;
-    if (!pageUrl) return res.status(400).json({ message: 'يرجى تزويد رابط الصفحات' });
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ message: 'رابط المسلسل مطلوب' });
 
-    const { data } = await axios.get(pageUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-    });
-
+    const { data } = await axiosInstance.get(url);
     const $ = cheerio.load(data);
-    
-    const title = $('h1.entry-title').text().trim();
-    const story = $('.entry-story p').text().trim();
-    const banner = $('.banner-img').attr('src') || '';
-    
-    // استخراج روابط المشاهدة والتحميل المباشرة
-    const streamLinks = [];
-    $('.download-link, .watch-link, a[href*="downet.net"]').each((i, el) => {
-      const href = $(el).attr('href');
-      const text = $(el).text().trim();
-      
-      let quality = '720p';
-      if (text.includes('1080') || href.includes('1080')) quality = '1080p';
-      if (text.includes('480') || href.includes('480')) quality = '480p';
+    const episodes = [];
 
-      if (href && (href.endsWith('.mp4') || href.includes('download'))) {
-        streamLinks.push({
-          quality,
-          url: href
-        });
+    $('.widget-body .bg-primary2, .row .entry-box').each((i, el) => {
+      const title = $(el).find('.entry-title a, a').text().trim();
+      const link = $(el).find('.entry-title a, a').attr('href');
+      
+      if (link && link.includes('/episode/')) {
+        episodes.push({ title, link });
       }
     });
+
+    res.json({ success: true, data: episodes });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'فشل جلب الحلقات', error: error.message });
+  }
+});
+
+// 3. استخراج رابط التشغيل المباشر من صفحة الفيلم/الحلقة
+app.get('/api/stream-link', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ message: 'الرابط مطلوب' });
+
+    const { data } = await axiosInstance.get(url);
+    const $ = cheerio.load(data);
+    
+    // البحث عن رابط التحميل/المشاهدة الوسيط
+    let watchPageUrl = $('a.link-btn[href*="/watch/"]').attr('href') || 
+                       $('a[href*="/download/"]').attr('href');
+
+    if (!watchPageUrl) {
+      // محاولة البحث عن أي رابط يحتوي على مشغل
+      watchPageUrl = $('iframe').attr('src');
+    }
+
+    if (!watchPageUrl) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على رابط مباشر' });
+    }
+
+    // الذهاب لصفحة التحويل لتتبع الفيديو المباشر
+    const watchRes = await axiosInstance.get(watchPageUrl);
+    const $watch = cheerio.load(watchRes.data);
+    
+    const directVideoUrl = $watch('source').attr('src') || $watch('video').attr('src');
 
     res.json({
       success: true,
-      data: {
-        title,
-        story,
-        banner,
-        streamLinks
-      }
+      streamUrl: directVideoUrl || watchPageUrl
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'فشل جلب التفاصيل', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل استخراج رابط المشاهدة', error: error.message });
   }
 });
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`Akwam Scraper API running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Scraper running on port ${PORT}`));

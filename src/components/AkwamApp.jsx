@@ -98,14 +98,14 @@ function AkwamApp() {
     );
   };
 
-  const openPlayer = async (item) => {
+  const playStreamDirectly = async (mediaLink, title, item = null) => {
     setSelectedItem(null);
     setLoading(true);
     setError('');
 
     try {
       const response = await fetch(
-        api(`/api/stream-link?url=${encodeURIComponent(item.link)}`)
+        api(`/api/stream-link?url=${encodeURIComponent(mediaLink)}`)
       );
       const data = await response.json();
 
@@ -113,9 +113,20 @@ function AkwamApp() {
         throw new Error(data.message || 'لم يتم العثور على رابط التشغيل');
       }
 
-      setActiveQuality(data.quality || 'auto');
+      const resolvedItem = item || {
+        title,
+        link: mediaLink,
+        poster: '',
+        banner: ''
+      };
+
+      setActiveQuality(data.quality || '1080p');
       setActiveVideo({
-        ...item,
+        ...resolvedItem,
+        title: title || resolvedItem.title,
+        streamLinks: data.streamLinks?.length
+          ? data.streamLinks
+          : [{ quality: data.quality || '1080p', url: data.streamUrl }],
         url: data.streamUrl,
         sourcePage: data.sourcePage
       });
@@ -271,7 +282,7 @@ function AkwamApp() {
 
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => openPlayer(featured)}
+                  onClick={() => playStreamDirectly(featured.link, featured.title, featured)}
                   className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-red-600/25 hover:scale-[1.02] transition"
                 >
                   {icon.play} شاهد الآن
@@ -369,7 +380,7 @@ function AkwamApp() {
                     </button>
 
                     <button
-                      onClick={() => openPlayer(item)}
+                      onClick={() => playStreamDirectly(item.link, item.title, item)}
                       className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-xl"
                       aria-label="تشغيل"
                     >
@@ -422,7 +433,7 @@ function AkwamApp() {
           bookmarked={watchlist.some((w) => w.id === selectedItem.id)}
           onClose={() => setSelectedItem(null)}
           onToggle={() => toggleWatchlist(selectedItem)}
-          onPlay={() => openPlayer(selectedItem)}
+          onPlay={() => playStreamDirectly(selectedItem.link, selectedItem.title, selectedItem)}
         />
       )}
 
@@ -542,7 +553,7 @@ function DetailsModal({ item, bookmarked, onClose, onToggle, onPlay }) {
 function PlayerModal({ item, quality, setQuality, onClose }) {
   const [videoError, setVideoError] = useState(false);
 
-  const source = item.url;
+  const source = (item.streamLinks || []).find((x) => x.quality === quality)?.url || item.url;
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/95 flex flex-col fade-in">
@@ -562,7 +573,7 @@ function PlayerModal({ item, quality, setQuality, onClose }) {
 
         <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
           <span className="hidden sm:block text-xs text-slate-500 px-2">الجودة</span>
-          {['1080p', '720p', '480p'].map((q) => (
+          {(item.streamLinks?.length ? item.streamLinks.map((x) => x.quality) : ['1080p']).filter((q, i, a) => q && a.indexOf(q) === i).map((q) => (
             <button
               key={q}
               onClick={() => setQuality(q)}

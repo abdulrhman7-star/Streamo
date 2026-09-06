@@ -149,27 +149,44 @@ exports.handler = async (event) => {
       }
 
       let streamUrl = null;
+      const streamLinks = [];
 
       try {
         const watch = await client.get(watchUrl);
         const $$ = cheerio.load(watch.data);
 
-        streamUrl =
-          $$('source').first().attr('src') ||
+        $$('source').each((_, el) => {
+          const url = abs($$(el).attr('src'));
+          if (!url) return;
+          const quality =
+            $$(el).attr('label') ||
+            $$(el).attr('size') ||
+            $$(el).attr('data-quality') ||
+            'auto';
+          if (!streamLinks.some((x) => x.url === url)) {
+            streamLinks.push({ quality, url });
+          }
+        });
+
+        const fallback =
           $$('video source').first().attr('src') ||
           $$('video').first().attr('src') ||
           $$('iframe').first().attr('src');
 
-        streamUrl = abs(streamUrl);
+        streamUrl = abs(fallback);
+        if (streamUrl && !streamLinks.some((x) => x.url === streamUrl)) {
+          streamLinks.push({ quality: 'auto', url: streamUrl });
+        }
       } catch (e) {
         console.warn('watch extraction:', e.message);
       }
 
       return response(200, {
         success: true,
-        streamUrl: streamUrl || watchUrl,
+        streamUrl: streamUrl || streamLinks[0]?.url || watchUrl,
+        streamLinks,
         sourcePage: watchUrl,
-        direct: Boolean(streamUrl)
+        direct: Boolean(streamUrl || streamLinks.length)
       });
     }
 

@@ -1,52 +1,84 @@
-# Akwam Netlify UI
+# Akwam Stream — Next.js + Netlify Functions
 
-نسخة واجهة جديدة مستوحاة من التصميم المرفق:
-- Header زجاجي ثابت.
-- شعار أكوام Stream.
-- تبويبات الكل/الأفلام/المسلسلات.
-- بحث.
-- قائمة مفضلة محفوظة في localStorage.
-- Hero banner.
-- بطاقات حديثة مع التقييم والجودة وزر التشغيل.
-- نافذة تفاصيل.
-- مشغل HTML5.
-- Netlify Functions بدل Express Server.
+مشروع واجهة عربية RTL مبني على Next.js ويستخدم Netlify Functions كطبقة API.
 
-## Netlify
+> استخدمه فقط مع مصادر ومحتوى تملك حق الوصول إليه وتشغيله. لا يتضمن المشروع أي آلية لتجاوز أنظمة الحماية أو القيود التقنية للمصادر.
 
-Build command:
-```text
-npm run build
-```
+## أهم التغييرات
 
-Publish directory:
-```text
-.next
-```
+- دالة `playStreamDirectly(mediaLink, title, item)` في الواجهة.
+- عند نجاح `/api/stream-link` يتم إنشاء:
+  `streamLinks: [{ quality, url }]`
+  ثم فتح مشغل الفيديو فوراً.
+- دعم أكثر من مصدر جودة عندما يعيد المصدر عناصر `<source>` متعددة.
+- حفظ المفضلة في `localStorage`.
+- بحث وأفلام ومسلسلات ونافذة تفاصيل.
+- Netlify Functions بدون Express.
 
-Functions:
-```text
-netlify/functions
-```
-
-يوجد `netlify.toml` لضبط الإعدادات.
-
-Environment Variable:
-```text
-AKWAM_BASE_URL=https://akwam.ss
-```
-
-## محلياً
+## تشغيل محلياً
 
 ```bash
 npm install
 npm run dev
 ```
 
-ولاختبار Functions مع Netlify CLI:
+للاختبار مع Netlify Functions:
+
 ```bash
 npm install -g netlify-cli
 netlify dev
 ```
 
-ملاحظة: بيانات البطاقة تعتمد على HTML المصدر، لذلك قد تحتاج selectors في `netlify/functions/api.js` إلى تحديث إذا تغيرت بنية المصدر. استخدم المشروع فقط مع المصادر والمحتوى الذي لديك الحق في الوصول إليه وتشغيله.
+## إعداد البيئة
+
+انسخ `.env.example` إلى `.env.local` واضبط:
+
+```env
+AKWAM_BASE_URL=https://example.com
+NEXT_PUBLIC_API_URL=
+```
+
+غيّر `AKWAM_BASE_URL` إلى المصدر الذي تملك حق استخدامه.
+
+## API
+
+- `GET /api/health`
+- `GET /api/media?q=&type=movies&page=1`
+- `GET /api/series-episodes?url=...`
+- `GET /api/stream-link?url=...`
+
+مثال استجابة التشغيل:
+
+```json
+{
+  "success": true,
+  "streamUrl": "https://example.com/video.mp4",
+  "streamLinks": [
+    {
+      "quality": "1080p",
+      "url": "https://example.com/video.mp4"
+    }
+  ],
+  "direct": true
+}
+```
+
+## Netlify
+
+Build command:
+
+```text
+npm run build
+```
+
+Publish directory:
+
+```text
+.next
+```
+
+Functions directory:
+
+```text
+netlify/functions
+```

@@ -1,55 +1,75 @@
-# Akwam Next.js + Express
+# Akwam Netlify Edition
 
-مشروع JavaScript كامل يتكون من:
+نسخة مخصصة للنشر على Netlify بدون خادم Express منفصل.
 
-- Frontend: Next.js + React
-- Backend: Node.js + Express
-- Scraping: Axios + Cheerio
-- API endpoints:
-  - `/api/media`
-  - `/api/series-episodes`
-  - `/api/stream-link`
-  - `/api/health`
+## البنية
 
-## التشغيل
+- Next.js + React
+- Netlify Functions
+- Axios + Cheerio
+- `netlify.toml`
+- API موحد تحت `/api/*`
+
+## API
+
+```text
+GET /api/health
+GET /api/media?q=&type=movies&page=1
+GET /api/series-episodes?url=...
+GET /api/stream-link?url=...
+```
+
+## النشر من GitHub
+
+ارفع الملفات إلى GitHub ثم في Netlify:
+
+Build command:
+```text
+npm run build
+```
+
+Publish directory:
+```text
+.next
+```
+
+Functions directory:
+```text
+netlify/functions
+```
+
+وجود `netlify.toml` يجعل Netlify يقرأ الإعدادات تلقائياً.
+
+## Environment Variables
+
+في Netlify > Site configuration > Environment variables:
+
+```text
+AKWAM_BASE_URL=https://akwam.ss
+```
+
+لا تحتاج إلى `NEXT_PUBLIC_API_URL` في حالة استخدام نفس موقع Netlify؛ الواجهة تستدعي `/api/...` على نفس النطاق.
+
+## تشغيل محلي
 
 ```bash
 npm install
-npm run dev
+npm run build
 ```
 
-الواجهة:
-http://localhost:3000
-
-الخادم:
-http://localhost:5000
-
-## متغيرات البيئة
-
-انسخ `.env.example` إلى `.env` وعدّل:
-
-```env
-AKWAM_BASE_URL=https://akwam.ss
-PORT=5000
-NEXT_PUBLIC_API_URL=http://localhost:5000
-```
-
-يمكن تغيير نطاق المصدر إذا كان النطاق المستخدم لديك مختلفاً.
-
-## تشغيل منفصل
-
-الخادم:
+للتجربة الكاملة لـ Netlify Functions محلياً يُفضّل تثبيت Netlify CLI:
 
 ```bash
-node server.js
+npm install -g netlify-cli
+netlify dev
 ```
 
-الواجهة:
+ثم:
 
-```bash
-npm run frontend
+```text
+http://localhost:8888
 ```
 
 ## ملاحظة
 
-المشروع يعتمد على بنية صفحات المصدر وقت التنفيذ؛ إذا تغيرت HTML selectors في المصدر فقد تحتاج دوال الاستخراج في `server.js` إلى تحديث. استخدمه فقط مع مصادر ومحتوى لديك الحق في الوصول إليه وتشغيله.
+Selectors الخاصة بالاستخراج تعتمد على بنية HTML للمصدر وقت التنفيذ، وقد تحتاج إلى تحديث إذا تغيرت بنية المصدر. استخدم المشروع فقط مع المصادر والمحتوى الذي لديك الحق في الوصول إليه وتشغيله.

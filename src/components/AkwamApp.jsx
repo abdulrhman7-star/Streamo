@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 function AkwamApp() {
   const [items, setItems] = useState([]);
@@ -15,15 +14,17 @@ function AkwamApp() {
   const [episodes, setEpisodes] = useState([]);
   const [activeVideo, setActiveVideo] = useState(null);
 
+  const api = (path) => `${API_BASE}${path}`;
+
   const loadMedia = async (query = '', type = filterType) => {
     setLoading(true);
     setError('');
 
     try {
-      const endpoint =
-        `${API_BASE}/api/media?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`;
+      const res = await fetch(
+        api(`/api/media?q=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`)
+      );
 
-      const res = await fetch(endpoint);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
@@ -33,7 +34,7 @@ function AkwamApp() {
     } catch (err) {
       console.error(err);
       setItems([]);
-      setError('تعذر جلب المحتوى. تأكد أن الخادم يعمل.');
+      setError('تعذر جلب المحتوى. تحقق من إعدادات Netlify والمصدر.');
     } finally {
       setLoading(false);
     }
@@ -54,7 +55,7 @@ function AkwamApp() {
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/series-episodes?url=${encodeURIComponent(item.link)}`
+        api(`/api/series-episodes?url=${encodeURIComponent(item.link)}`)
       );
       const data = await res.json();
 
@@ -76,7 +77,7 @@ function AkwamApp() {
 
     try {
       const res = await fetch(
-        `${API_BASE}/api/stream-link?url=${encodeURIComponent(link)}`
+        api(`/api/stream-link?url=${encodeURIComponent(link)}`)
       );
       const data = await res.json();
 
@@ -85,10 +86,7 @@ function AkwamApp() {
       }
 
       setSelectedSeries(null);
-      setActiveVideo({
-        title,
-        url: data.streamUrl
-      });
+      setActiveVideo({ title, url: data.streamUrl });
     } catch (err) {
       console.error(err);
       setError('تعذر استخراج رابط التشغيل.');
@@ -96,8 +94,6 @@ function AkwamApp() {
       setLoading(false);
     }
   };
-
-  const closeVideo = () => setActiveVideo(null);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6" dir="rtl">
@@ -167,13 +163,9 @@ function AkwamApp() {
         )}
 
         {loading ? (
-          <div className="text-center py-20 text-slate-400">
-            جاري التحميل...
-          </div>
+          <div className="text-center py-20 text-slate-400">جاري التحميل...</div>
         ) : items.length === 0 ? (
-          <div className="text-center py-20 text-slate-500">
-            لا توجد نتائج.
-          </div>
+          <div className="text-center py-20 text-slate-500">لا توجد نتائج.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-6">
             {items.map((item) => (
@@ -221,17 +213,11 @@ function AkwamApp() {
       </section>
 
       {selectedSeries && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setSelectedSeries(null);
-          }}
-        >
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl p-5 md:p-6 max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-lg">{selectedSeries.title}</h3>
               <button
-                type="button"
                 onClick={() => setSelectedSeries(null)}
                 className="text-slate-400 hover:text-white text-xl"
               >
@@ -240,22 +226,16 @@ function AkwamApp() {
             </div>
 
             <div className="overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {episodes.length ? (
-                episodes.map((ep, idx) => (
-                  <button
-                    type="button"
-                    key={`${ep.link}-${idx}`}
-                    onClick={() => playStream(ep.link, ep.title)}
-                    className="bg-slate-800 hover:bg-red-600/20 hover:border-red-600 border border-slate-700 text-right p-3 rounded-xl text-sm transition text-white"
-                  >
-                    {ep.title}
-                  </button>
-                ))
-              ) : (
-                <div className="col-span-full text-center text-slate-500 py-10">
-                  لا توجد حلقات.
-                </div>
-              )}
+              {episodes.map((ep, idx) => (
+                <button
+                  type="button"
+                  key={`${ep.link}-${idx}`}
+                  onClick={() => playStream(ep.link, ep.title)}
+                  className="bg-slate-800 hover:bg-red-600/20 hover:border-red-600 border border-slate-700 text-right p-3 rounded-xl text-sm transition text-white"
+                >
+                  {ep.title}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -267,9 +247,8 @@ function AkwamApp() {
             <div className="p-4 flex justify-between items-center gap-4">
               <h3 className="font-bold truncate">{activeVideo.title}</h3>
               <button
-                type="button"
-                onClick={closeVideo}
-                className="text-slate-400 hover:text-white text-xl shrink-0"
+                onClick={() => setActiveVideo(null)}
+                className="text-slate-400 hover:text-white text-xl"
               >
                 ✕
               </button>
@@ -281,7 +260,6 @@ function AkwamApp() {
                 className="w-full h-full border-0"
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
                 title={activeVideo.title}
               />
             </div>

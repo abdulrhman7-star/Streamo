@@ -1,115 +1,101 @@
+// server.js
 const express = require('express');
 const axios = require('axios');
-const cors = require('cors');
-const NodeCache = require('node-cache');
 const cheerio = require('cheerio');
+const cors = require('cors');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ذاكرة مؤقتة لتسريع الاستجابة وتقليل الضغط (صالحية 30 دقيقة)
-const cache = new NodeCache({ stdTTL: 1800, checkperiod: 120 });
+const AKWAM_BASE_URL = 'https://akwam.ss'; // نطاق موقع أكوام الحالي
 
-// محاكاة متصفح حقيقي لتجنب الحظر من الموقع المصدر
-const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8',
-    'Referer': 'https://ak.sv/'
-};
-
-// 1. نقطة نهاية البحث (Search API)
+// 1. API للبحث عن أفلام أو مسلسلات
 app.get('/api/search', async (req, res) => {
-    const { q } = req.query;
-    if (!q) return res.status(400).json({ success: false, error: 'مطلوب معلمة البحث q' });
+  try {
+    const query = req.query.q || '';
+    const searchUrl = `${AKWAM_BASE_URL}/search?q=${encodeURIComponent(query)}`;
+    
+    const { data } = await axios.get(searchUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+    });
 
-    const cacheKey = `search_${q}`;
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) return res.json(cachedData);
+    const $ = cheerio.load(data);
+    const results = [];
 
-    try {
-        const searchUrl = `https://ak.sv/?s=${encodeURIComponent(q)}`;
-        const response = await axios.get(searchUrl, { headers, timeout: 10000 });
-        const $ = cheerio.load(response.data);
-        const results = [];
+    $('.widget-body .entry-box').each((i, el) => {
+      const title = $(el).find('.entry-title a').text().trim();
+      const link = $(el).find('.entry-title a').attr('href');
+      const poster = $(el).find('.entry-image img').attr('src') || $(el).find('.entry-image img').attr('data-src');
+      const rating = $(el).find('.rating').text().trim() || 'N/A';
+      const category = $(el).find('.category').text().trim();
 
-        $('.post-box').each((i, el) => {
-            const title = $(el).find('.post-title a').text().trim();
-            const url = $(el).find('.post-title a').attr('href');
-            const image = $(el).find('.post-image img').attr('data-src') || $(el).find('.post-image img').attr('src');
-            const quality = $(el).find('.post-quality').text().trim();
-            const rating = $(el).find('.post-rating').text().trim();
-
-            if (title && url) {
-                results.push({ title, url, image, quality, rating });
-            }
+      if (title && link) {
+        results.push({
+          id: Buffer.from(link).toString('base64'), // معرّف مشفّر من الرابط
+          title,
+          link,
+          poster,
+          rating,
+          category,
+          type: link.includes('/series/') ? 'series' : 'movie'
         });
+      }
+    });
 
-        const responseData = { success: true, data: results };
-        cache.set(cacheKey, responseData);
-        res.json(responseData);
-    } catch (error) {
-        console.error('Search Error:', error.message);
-        res.status(500).json({ success: false, error: 'فشل في عملية البحث' });
-    }
+    res.json({ success: true, count: results.length, data: results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء البحث في أكوام', error: error.message });
+  }
 });
 
-// 2. نقطة نهاية التفاصيل والروابط المباشرة (Details API)
+// 2. API لجلب تفاصيل العرض وروابط التشغيل المباشرة (.mp4)
 app.get('/api/details', async (req, res) => {
-    const { url } = req.query;
-    if (!url || !url.includes('ak.sv')) return res.status(400).json({ success: false, error: 'رابط غير صالح' });
+  try {
+    const pageUrl = req.query.url;
+    if (!pageUrl) return res.status(400).json({ message: 'يرجى تزويد رابط الصفحات' });
 
-    const cacheKey = `details_${url}`;
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) return res.json(cachedData);
+    const { data } = await axios.get(pageUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+    });
 
-    try {
-        const response = await axios.get(url, { headers, timeout: 15000 });
-        const $ = cheerio.load(response.data);
+    const $ = cheerio.load(data);
+    
+    const title = $('h1.entry-title').text().trim();
+    const story = $('.entry-story p').text().trim();
+    const banner = $('.banner-img').attr('src') || '';
+    
+    // استخراج روابط المشاهدة والتحميل المباشرة
+    const streamLinks = [];
+    $('.download-link, .watch-link, a[href*="downet.net"]').each((i, el) => {
+      const href = $(el).attr('href');
+      const text = $(el).text().trim();
+      
+      let quality = '720p';
+      if (text.includes('1080') || href.includes('1080')) quality = '1080p';
+      if (text.includes('480') || href.includes('480')) quality = '480p';
 
-        const title = $('h1.post-title').text().trim() || $('title').text().split('-')[0].trim();
-        const image = $('.poster-img').attr('src') || $('.post-image img').attr('src');
-        const story = $('.story').text().trim() || $('.post-content p').first().text().trim();
-        const rating = $('.rating').text().trim() || 'غير متوفر';
-        const duration = $('.duration').text().trim() || 'غير متوفر';
-
-        const links = [];
-        $('a').each((i, el) => {
-            const href = $(el).attr('href');
-            const text = $(el).text().trim().toLowerCase();
-            
-            if (href && (href.includes('downet.net') || href.includes('watch') || text.includes('مشاهدة') || text.includes('تحميل'))) {
-                const cleanUrl = href.replace('&amp;', '&');
-                let quality = '1080p';
-                if (text.includes('4k') || text.includes('2160')) quality = '4K';
-                else if (text.includes('720')) quality = '720p';
-                else if (text.includes('480')) quality = '480p';
-
-                if (!links.find(l => l.url === cleanUrl)) {
-                    links.push({
-                        quality: quality,
-                        url: cleanUrl,
-                        isM3u8: cleanUrl.includes('.m3u8')
-                    });
-                }
-            }
+      if (href && (href.endsWith('.mp4') || href.includes('download'))) {
+        streamLinks.push({
+          quality,
+          url: href
         });
+      }
+    });
 
-        const responseData = {
-            success: true,
-            data: { title, image, story, rating, duration, links }
-        };
-        
-        cache.set(cacheKey, responseData);
-        res.json(responseData);
-    } catch (error) {
-        console.error('Details Error:', error.message);
-        res.status(500).json({ success: false, error: 'فشل في جلب تفاصيل الفيلم' });
-    }
+    res.json({
+      success: true,
+      data: {
+        title,
+        story,
+        banner,
+        streamLinks
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'فشل جلب التفاصيل', error: error.message });
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+const PORT = 5000;
+app.listen(PORT, () => console.log(`Akwam Scraper API running on port ${PORT}`));

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Akwam Cinema - منصة أكوام السينمائية</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { cairo: ['Cairo', 'sans-serif'] },
+          colors: {
+            akwam: {
+              red: '#e50914',
+              redHover: '#b80710',
+              gold: '#ffb703',
+              dark: '#0f172a',
+              card: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Cairo', sans-serif; background-color: #0b0f19; color: #f8fafc; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #e50914; }
+    .glass { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+  </style>
+
+  <!-- React CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-[#0b0f19] text-gray-100 min-h-screen flex flex-col">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const AKWAM_CATALOG = [
+      {
+        id: "ak-101",
+        title: "همام في أمستردام",
+        type: "movie",
+        year: 1999,
+        category: "كوميدي / دراما",
+        duration: "115 دقيقة",
+        poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80",
+        banner: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1600&q=80",
+        story: "يسافر الشاب همام إلى هولندا للإقامة مع أقاربه وتجربة حظه للوصول لفرصة عمل وتأمين مستقبله.",
+        akwamPageUrl: "https://akwam.ss/movie/7013/همام-في-امستردام",
+        streamLinks: [
+          { quality: "1080p", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" },
+          { quality: "720p", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" }
+        ]
+      },
+      {
+        id: "ak-102",
+        title: "صعيد في الجامعة الأمريكية",
+        type: "movie",
+        year: 1998,
+        category: "كوميدي",
+        duration: "110 دقيقة",
+        poster: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80",
+        banner: "https://images.unsplash.com/photo-1518676599626-fcd67d79671f?auto=format&fit=crop&w=1600&q=80",
+        story: "خلف الدهشوري طالب قادم من الصعيد يحصل على المنحة الدراسية بالجامعة الأمريكية بالقاهرة.",
+        akwamPageUrl: "https://akwam.ss/movie/7014/صعيدي-في-الجامعة-الأمريكية",
+        streamLinks: [
+          { quality: "720p", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" }
+        ]
+      }
+    ];
+
+    function App() {
+      const [searchQuery, setSearchQuery] = useState('');
+      const [activeType, setActiveType] = useState('all');
+      const [selectedItem, setSelectedItem] = useState(null);
+      const [activePlayer, setActivePlayer] = useState(null); // { title, url }
+      const [loadingStream, setLoadingStream] = useState(false);
+      const [watchlist, setWatchlist] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('akwam_favs') || '[]'); } catch { return []; }
+      });
+
+      useEffect(() => {
+        localStorage.setItem('akwam_favs', JSON.stringify(watchlist));
+      }, [watchlist]);
+
+      // دالة استخراج الرابط المباشر عبر السيرفر
+      const handlePlayMedia = async (item) => {
+        setLoadingStream(true);
+        try {
+          // 1. تجربة جلب الرابط الديناميكي من سيرفر Netlify
+          const res = await fetch(`/api/stream-link?url=${encodeURIComponent(item.akwamPageUrl)}`);
+          const data = await res.json();
+
+          if (data.success && data.streamUrl) {
+            setActivePlayer({ title: item.title, url: data.streamUrl });
+          } else {
+            // 2. استخدام الرابط الافتراضي في حال عدم توفر السيرفر محلياً
+            setActivePlayer({ title: item.title, url: item.streamLinks[0].url });
+          }
+        } catch (err) {
+          // Fallback للرابط المباشر الافتراضي
+          setActivePlayer({ title: item.title, url: item.streamLinks[0].url });
+        } finally {
+          setLoadingStream(false);
+        }
+      };
+
+      const toggleWatchlist = (item) => {
+        if (watchlist.some(w => w.id === item.id)) {
+          setWatchlist(watchlist.filter(w => w.id !== item.id));
+        } else {
+          setWatchlist([...watchlist, item]);
+        }
+      };
+
+      const filteredItems = useMemo(() => {
+        return AKWAM_CATALOG.filter(item => {
+          const matchesSearch = item.title.includes(searchQuery) || item.category.includes(searchQuery);
+          const matchesType = activeType === 'all' ? true : item.type === activeType;
+          return matchesSearch && matchesType;
+        });
+      }, [searchQuery, activeType]);
+
+      return (
+        <div className="min-h-screen flex flex-col justify-between">
+          {/* Header */}
+          <header className="sticky top-0 z-40 glass border-b border-slate-800">
+            <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-6">
+                <a href="#" className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-akwam-red rounded-xl flex items-center justify-center font-black text-2xl text-white">أ</div>
+                  <span className="text-2xl font-black text-white">أكـوام</span>
+                </a>
+
+                <nav className="hidden md:flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+                  <button onClick={() => setActiveType('all')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${activeType === 'all' ? 'bg-akwam-red text-white' : 'text-slate-400'}`}>الكل</button>
+                  <button onClick={() => setActiveType('movie')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${activeType === 'movie' ? 'bg-akwam-red text-white' : 'text-slate-400'}`}>الأفلام</button>
+                  <button onClick={() => setActiveType('series')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${activeType === 'series' ? 'bg-akwam-red text-white' : 'text-slate-400'}`}>المسلسلات</button>
+                </nav>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="ابحث..."
+                    className="w-48 sm:w-64 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-akwam-red"
+                  />
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="max-w-7xl mx-auto px-4 py-8 w-full flex-1">
+            {loadingStream && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center">
+                <div className="text-center">
+                  <i className="fa-solid fa-spinner fa-spin text-4xl text-akwam-red mb-3"></i>
+                  <p className="text-white font-bold">جاري استخراج رابط البث المباشر...</p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {filteredItems.map(item => (
+                <div key={item.id} className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 hover:border-slate-600 transition-all">
+                  <div className="relative aspect-[2/3] bg-slate-950">
+                    <img src={item.poster} alt={item.title} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => handlePlayMedia(item)}
+                      className="absolute inset-0 m-auto w-12 h-12 bg-akwam-red text-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                    >
+                      <i className="fa-solid fa-play text-lg"></i>
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-white text-base line-clamp-1">{item.title}</h3>
+                    <p className="text-xs text-slate-400 mt-1">{item.category}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </main>
+
+          {/* Direct Embedded Video Player */}
+          {activePlayer && (
+            <div className="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between">
+              <div className="p-4 flex items-center justify-between bg-slate-900/80 border-b border-slate-800">
+                <h3 className="font-bold text-white text-lg">{activePlayer.title}</h3>
+                <button onClick={() => setActivePlayer(null)} className="w-10 h-10 bg-slate-800 text-white rounded-full flex items-center justify-center">
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800">
+                  <video controls autoPlay className="w-full h-full">
+                    <source src={activePlayer.url} type="video/mp4" />
+                    متصفحك لا يدعم هذا المشغل.
+                  </video>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <footer className="border-t border-slate-800 bg-slate-950 py-6 text-center text-slate-500 text-sm">
+            حقوق العرض محفوظة © 2026
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

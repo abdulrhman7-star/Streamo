@@ -1,15 +1,66 @@
-* {
-  box-sizing: border-box;
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg: #0b0f19;
+  --panel: #111827;
+  --card: #172033;
+  --border: rgba(148,163,184,.14);
+  --muted: #94a3b8;
+  --red: #e50914;
+  --red-hover: #b80710;
+  --gold: #ffb703;
+  --cyan: #38bdf8;
 }
 
-html,
-body {
+* { box-sizing: border-box; }
+
+html, body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background: #020617;
+  background: var(--bg);
+  color: #f8fafc;
+  font-family: 'Cairo', Arial, sans-serif;
 }
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
+button, input { font: inherit; }
+
+button { cursor: pointer; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--red); }
+
+.glass {
+  background: rgba(15, 23, 42, .78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.hero-gradient {
+  background:
+    linear-gradient(to top, #0b0f19 3%, rgba(11,15,25,.86) 35%, rgba(11,15,25,.12) 75%),
+    linear-gradient(to left, #0b0f19 0%, transparent 60%);
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.fade-in { animation: fadeIn .22s ease-out; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -1,27 +1,18 @@
-# Akwam Netlify Edition
+# Akwam Netlify UI
 
-نسخة مخصصة للنشر على Netlify بدون خادم Express منفصل.
+نسخة واجهة جديدة مستوحاة من التصميم المرفق:
+- Header زجاجي ثابت.
+- شعار أكوام Stream.
+- تبويبات الكل/الأفلام/المسلسلات.
+- بحث.
+- قائمة مفضلة محفوظة في localStorage.
+- Hero banner.
+- بطاقات حديثة مع التقييم والجودة وزر التشغيل.
+- نافذة تفاصيل.
+- مشغل HTML5.
+- Netlify Functions بدل Express Server.
 
-## البنية
-
-- Next.js + React
-- Netlify Functions
-- Axios + Cheerio
-- `netlify.toml`
-- API موحد تحت `/api/*`
-
-## API
-
-```text
-GET /api/health
-GET /api/media?q=&type=movies&page=1
-GET /api/series-episodes?url=...
-GET /api/stream-link?url=...
-```
-
-## النشر من GitHub
-
-ارفع الملفات إلى GitHub ثم في Netlify:
+## Netlify
 
 Build command:
 ```text
@@ -33,43 +24,29 @@ Publish directory:
 .next
 ```
 
-Functions directory:
+Functions:
 ```text
 netlify/functions
 ```
 
-وجود `netlify.toml` يجعل Netlify يقرأ الإعدادات تلقائياً.
+يوجد `netlify.toml` لضبط الإعدادات.
 
-## Environment Variables
-
-في Netlify > Site configuration > Environment variables:
-
+Environment Variable:
 ```text
 AKWAM_BASE_URL=https://akwam.ss
 ```
 
-لا تحتاج إلى `NEXT_PUBLIC_API_URL` في حالة استخدام نفس موقع Netlify؛ الواجهة تستدعي `/api/...` على نفس النطاق.
-
-## تشغيل محلي
+## محلياً
 
 ```bash
 npm install
-npm run build
+npm run dev
 ```
 
-للتجربة الكاملة لـ Netlify Functions محلياً يُفضّل تثبيت Netlify CLI:
-
+ولاختبار Functions مع Netlify CLI:
 ```bash
 npm install -g netlify-cli
 netlify dev
 ```
 
-ثم:
-
-```text
-http://localhost:8888
-```
-
-## ملاحظة
-
-Selectors الخاصة بالاستخراج تعتمد على بنية HTML للمصدر وقت التنفيذ، وقد تحتاج إلى تحديث إذا تغيرت بنية المصدر. استخدم المشروع فقط مع المصادر والمحتوى الذي لديك الحق في الوصول إليه وتشغيله.
+ملاحظة: بيانات البطاقة تعتمد على HTML المصدر، لذلك قد تحتاج selectors في `netlify/functions/api.js` إلى تحديث إذا تغيرت بنية المصدر. استخدم المشروع فقط مع المصادر والمحتوى الذي لديك الحق في الوصول إليه وتشغيله.

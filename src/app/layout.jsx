@@ -1,8 +1,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Akwam Media',
-  description: 'أفلام ومسلسلات'
+  title: 'أكـوام Stream',
+  description: 'منصة أفلام ومسلسلات'
 };
 
 export default function RootLayout({ children }) {
